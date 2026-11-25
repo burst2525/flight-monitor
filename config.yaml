@@ -1,0 +1,115 @@
+# ==========================================
+# 航空券 格安監視設定ファイル (大阪拠点)
+# ==========================================
+
+# 1. 出発地設定
+origin:
+  code: "KIX"          # 関西国際空港 (KIX)
+  name: "大阪(関空)"
+
+# 2. 格安判定ルール (通常価格からの下落率)
+# 金額を自分で決めなくても、相場から大幅に安くなったフライトを自動検知します
+alert_criteria:
+  # 通常価格より何%安くなったら通知するか (例: 25% OFF以上)
+  discount_threshold_percent: 25
+  # クールダウン時間 (同じ価格の通知を重複して送らない間隔：時間)
+  cooldown_hours: 12
+
+# 3. iPhone通知設定 (ntfy.sh)
+notification:
+  # iPhoneの「ntfy」アプリで購読するトピック名
+  topic: "flight-alert-osaka-hiroki"
+  server: "https://ntfy.sh"
+  priority: "high"     # min, low, default, high, urgent (urgentはマナーモード貫通)
+
+# 4. 監視期間
+search_window:
+  start_days_from_now: 14   # 何日後以降のフライトを調べるか (直前すぎない日程)
+  end_days_from_now: 90     # 何日後までのフライトを調べるか (例: 今後3ヶ月)
+
+# 5. 監視対象ルート (目的地と旅行日数)
+# ※手動で金額を指定する必要はありません。相場から自動判定されます。
+routes:
+  # --- 【国内 主要路線】 ---
+  - destination: "OKA"
+    name: "沖縄(那覇)"
+    category: "国内"
+    trip_days: [3, 4]             # 2泊3日、3泊4日
+
+  - destination: "CTS"
+    name: "札幌(新千歳)"
+    category: "国内"
+    trip_days: [2, 3, 4]
+
+  - destination: "HND"
+    name: "東京(羽田)"
+    category: "国内"
+    trip_days: [2, 3]
+
+  - destination: "FUK"
+    name: "福岡"
+    category: "国内"
+    trip_days: [2, 3]
+
+  # --- 【東アジア】 ---
+  - destination: "ICN"
+    name: "ソウル(仁川)"
+    category: "東アジア"
+    trip_days: [3, 4]
+
+  - destination: "TPE"
+    name: "台北(桃園)"
+    category: "東アジア"
+    trip_days: [3, 4, 5]
+
+  - destination: "HKG"
+    name: "香港"
+    category: "東アジア"
+    trip_days: [3, 4]
+
+  # --- 【東南アジア】 ---
+  - destination: "BKK"
+    name: "バンコク(タイ)"
+    category: "東南アジア"
+    trip_days: [4, 5, 6]
+
+  - destination: "DAD"
+    name: "ダナン(ベトナム)"
+    category: "東南アジア"
+    trip_days: [4, 5]
+
+  - destination: "HAN"
+    name: "ハノイ(ベトナム)"
+    category: "東南アジア"
+    trip_days: [4, 5]
+
+  - destination: "MNL"
+    name: "マニラ(フィリピン)"
+    category: "東南アジア"
+    trip_days: [4, 5]
+
+  - destination: "KUL"
+    name: "クアラルンプール(マレーシア)"
+    category: "東南アジア"
+    trip_days: [4, 5, 6]
+
+  # --- 【物価が安いヨーロッパ・周辺国】 ---
+  - destination: "IST"
+    name: "イスタンブール(トルコ)"
+    category: "ヨーロッパ・中東"
+    trip_days: [7, 8, 9, 10]
+
+  - destination: "BUD"
+    name: "ブダペスト(ハンガリー)"
+    category: "東欧"
+    trip_days: [7, 8, 9, 10]
+
+  - destination: "WAW"
+    name: "ワルシャワ(ポーランド)"
+    category: "東欧"
+    trip_days: [7, 8, 9, 10]
+
+  - destination: "PRG"
+    name: "プラハ(チェコ)"
+    category: "東欧"
+    trip_days: [7, 8, 9, 10]

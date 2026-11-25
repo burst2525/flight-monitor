@@ -1,0 +1,42 @@
+name: Flight Price Monitor (大阪発 格安航空券監視)
+
+on:
+  schedule:
+    # 毎日 日本時間(JST) 7:00, 12:00, 18:00, 22:00 に自動実行
+    # UTC: 22:00(前日), 03:00, 09:00, 13:00
+    - cron: '0 3,9,13,22 * * *'
+  workflow_dispatch: # GitHub画面から手動でいつでも実行可能
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリのチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Pythonのセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリのインストール
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 前回の価格履歴をキャッシュから復元 (相場学習 & 重複通知防止)
+      - name: 価格履歴の復元
+        uses: actions/cache@v4
+        with:
+          path: price_history.json
+          key: flight-history-${{ github.run_id }}
+          restore-keys: |
+            flight-history-
+
+      - name: 格安航空券のリアルタイム監視・iPhone通知を実行
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC || 'flight-alert-osaka-hiroki' }}
+        run: |
+          python main.py --all-routes
