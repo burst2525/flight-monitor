@@ -17,10 +17,10 @@ alert_criteria:
 
 # 3. iPhone通知設定 (ntfy.sh)
 notification:
-  # iPhoneの「ntfy」アプリで購読するトピック名
-  topic: "flight-alert-osaka-hiroki"
+  # ※安全のため、実際のトピック名はGitHub Secrets (NTFY_TOPIC) から自動取得されます
+  topic: "YOUR_NTFY_TOPIC"
   server: "https://ntfy.sh"
-  priority: "high"     # min, low, default, high, urgent (urgentはマナーモード貫通)
+  priority: "high"
 
 # 4. 監視期間
 search_window:
@@ -34,7 +34,7 @@ routes:
   - destination: "OKA"
     name: "沖縄(那覇)"
     category: "国内"
-    trip_days: [3, 4]             # 2泊3日、3泊4日
+    trip_days: [3, 4]
 
   - destination: "CTS"
     name: "札幌(新千歳)"
@@ -52,15 +52,20 @@ routes:
     trip_days: [2, 3]
 
   # --- 【東アジア】 ---
-  - destination: "ICN"
-    name: "ソウル(仁川)"
-    category: "東アジア"
-    trip_days: [3, 4]
-
   - destination: "TPE"
     name: "台北(桃園)"
     category: "東アジア"
     trip_days: [3, 4, 5]
+
+  - destination: "KHH"
+    name: "高雄(台湾)"
+    category: "東アジア"
+    trip_days: [3, 4]
+
+  - destination: "ICN"
+    name: "ソウル(仁川)"
+    category: "東アジア"
+    trip_days: [3, 4]
 
   - destination: "HKG"
     name: "香港"
