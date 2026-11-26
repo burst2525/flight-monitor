@@ -18,17 +18,41 @@ def load_config(config_path: str = "config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
-def generate_search_dates(start_days: int, end_days: int, trip_days_list: list) -> list:
-    """週末や人気日程を含む検索日ペアを生成"""
+def generate_gw_dates(gw_cfg: dict, trip_days_list: list) -> list:
+    """ゴールデンウィーク期間の最適な出発・帰国日ペアを生成"""
+    deps = gw_cfg.get("departure_dates", [])
+    rets = gw_cfg.get("return_dates", [])
+    valid_pairs = []
+
+    for dep_str in deps:
+        dep = datetime.strptime(dep_str, "%Y-%m-%d")
+        for ret_str in rets:
+            ret = datetime.strptime(ret_str, "%Y-%m-%d")
+            stay_days = (ret - dep).days
+            # 路線の希望日数と合致するGWペアを抽出
+            if stay_days in trip_days_list:
+                valid_pairs.append((dep_str, ret_str, True))  # TrueはGWフラグ
+
+    # もし厳密に一致しない場合でも、GW期間内の妥当なペアをフォールバックとして採用
+    if not valid_pairs:
+        for dep_str in deps[:2]:
+            dep = datetime.strptime(dep_str, "%Y-%m-%d")
+            for days in trip_days_list[:2]:
+                ret = dep + timedelta(days=days)
+                valid_pairs.append((dep_str, ret.strftime("%Y-%m-%d"), True))
+
+    return valid_pairs
+
+
+def generate_regular_dates(start_days: int, end_days: int, trip_days_list: list) -> list:
+    """通常期のサンプリング日程"""
     dates = []
     today = datetime.now()
-    
-    # 7日刻みでサンプリング（効率よく未来のフライトを調査）
-    for d in range(start_days, end_days, 7):
+    for d in range(start_days, end_days, 10):
         dep = today + timedelta(days=d)
-        for trip_days in trip_days_list:
+        for trip_days in trip_days_list[:1]:
             ret = dep + timedelta(days=trip_days)
-            dates.append((dep.strftime("%Y-%m-%d"), ret.strftime("%Y-%m-%d")))
+            dates.append((dep.strftime("%Y-%m-%d"), ret.strftime("%Y-%m-%d"), False))
     return dates
 
 
@@ -48,19 +72,21 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
     # 3. 判定ルール
     alert_cfg = config.get("alert_criteria", {})
     discount_threshold = alert_cfg.get("discount_threshold_percent", 25.0)
-    cooldown_hours = alert_cfg.get("cooldown_hours", 12)
+    cooldown_hours = alert_cfg.get("cooldown_hours", 8)
 
-    # 4. フライトチェッカー (APIキー不要・Googleフライト直接取得)
+    # 4. フライトチェッカー
     checker = FlightChecker()
 
     origin = config.get("origin", {}).get("code", "KIX")
     origin_name = config.get("origin", {}).get("name", "大阪(関空)")
     routes = config.get("routes", [])
-    window = config.get("search_window", {})
-    start_days = window.get("start_days_from_now", 14)
-    end_days = window.get("end_days_from_now", 60)
+
+    gw_cfg = config.get("gw_focus", {})
+    gw_enabled = gw_cfg.get("enabled", True)
 
     print(f"✈️ 航空券リアルタイム監視開始 [拠点: {origin_name}]")
+    if gw_enabled:
+        print("🎏 【ゴールデンウィーク(2027年4月下旬〜5月上旬)重点監視中】")
     print(f"📊 格安判定基準: 通常相場より {discount_threshold}% 以上の大幅下落・セールを検知")
     print(f"📡 iPhone通知トピック: {topic}")
 
@@ -86,12 +112,22 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             dest_name = route.get("name", dest)
             trip_days = route.get("trip_days", [3])
 
-            search_dates = generate_search_dates(start_days, end_days, trip_days)
-            typical = history.get_typical_price(dest)
-            print(f"🔍 リアルタイム検索中: {origin_name} ➔ {dest_name}({dest}) [相場: 約{int(typical):,}円] ...")
+            search_dates = []
+            if gw_enabled:
+                gw_pairs = generate_gw_dates(gw_cfg, trip_days)
+                search_dates.extend(gw_pairs[:4])  # GW日程を優先
 
-            # 直近の日程をチェック
-            for dep_date, ret_date in search_dates[:3]:
+            # 通常期の日程も少し補完
+            window = config.get("search_window", {})
+            start_days = window.get("start_days_from_now", 14)
+            end_days = window.get("end_days_from_now", 60)
+            regular_pairs = generate_regular_dates(start_days, end_days, trip_days)
+            search_dates.extend(regular_pairs[:1])
+
+            typical = history.get_typical_price(dest)
+            print(f"🔍 検索中: {origin_name} ➔ {dest_name}({dest}) [相場: 約{int(typical):,}円] ...")
+
+            for dep_date, ret_date, is_gw in search_dates:
                 offers = checker.search_round_trip(origin, dest, dep_date, ret_date)
                 for offer in offers:
                     price = offer["price"]
@@ -99,13 +135,15 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                     route_key = f"{origin}_{dest}_{dep_date}_{ret_date}"
 
                     # 相場と比較して大幅値下がりか判定
+                    # ※GW期間は通常期の相場でも十分安いため、GWはしきい値を少し柔軟に判定
+                    gw_discount_threshold = max(15.0, discount_threshold - 5.0) if is_gw else discount_threshold
                     should_notify, analysis = history.evaluate_deal(
-                        dest, route_key, price, discount_threshold_percent=discount_threshold, cooldown_hours=cooldown_hours
+                        dest, route_key, price, discount_threshold_percent=gw_discount_threshold, cooldown_hours=cooldown_hours
                     )
                     
-                    # 学習用に価格を記録
                     history.record_flight(dest, route_key, price, offer, notified=should_notify)
 
+                    gw_tag = "🎏[GW] " if is_gw else ""
                     if should_notify:
                         deal_info = {
                             "price": int(price),
@@ -117,24 +155,32 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                             "dep_date": dep_date,
                             "ret_date": ret_date,
                             "airline_name": airline,
+                            "is_gw": is_gw,
                             "google_flights_url": offer["google_flights_url"],
                         }
                         deal_info.update(analysis)
                         found_deals.append(deal_info)
-                        print(f"  👉 格安検知！ {dest_name}: {price:,}円 ({airline})")
+                        print(f"  👉 格安検知！ {gw_tag}{dest_name}: {price:,}円 ({airline})")
                     else:
-                        print(f"  ・ {dep_date}〜: {price:,}円 ({airline}) - 通常相場内")
+                        print(f"  ・ {gw_tag}{dep_date}〜{ret_date}: {price:,}円 ({airline}) - 通常相場内")
 
     # 5. 格安・メガセール検知時のiPhone通知送信
     if found_deals:
         print(f"\n🎉 {len(found_deals)} 件の大幅値下げ・格安チケットを検知しました！iPhoneへ通知します...")
         for deal in found_deals:
             is_mega = deal.get("is_mega_deal", False)
-            badge = "🚨【メガセール!】" if is_mega else "✈️【格安検知】"
+            is_gw = deal.get("is_gw", False)
+
+            if is_gw:
+                badge = "🎏🚨【GWメガセール!】" if is_mega else "🎏✈️【GW格安検知】"
+            else:
+                badge = "🚨【メガセール!】" if is_mega else "✈️【格安検知】"
 
             title = f"{badge} {origin_name} ➔ {deal['name']} {deal['price']:,}円"
+            gw_note = "※超高騰するゴールデンウィークの格安枠です！\n" if is_gw else ""
             body = (
                 f"{deal.get('reason', '')}\n"
+                f"{gw_note}"
                 f"💰 往復総額: {deal['price']:,}円 (通常相場: 約{deal['typical_price']:,}円)\n"
                 f"🏷 割引率: 約{deal['discount_rate']}% OFF (-{deal['drop_amount']:,}円)\n"
                 f"🛫 運航: {deal.get('airline_name', '航空会社')}\n"
@@ -142,8 +188,8 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                 f"👉 タップしてGoogleフライトで予約画面を開く"
             )
 
-            priority = "urgent" if is_mega else "high"
-            tags = ["rotating_light", "moneybag", "airplane"] if is_mega else ["airplane", "sparkles"]
+            priority = "urgent" if (is_mega or is_gw) else "high"
+            tags = ["airplane", "flags", "fire"] if is_gw else ["airplane", "sparkles"]
 
             notifier.send(
                 title=title,
@@ -153,7 +199,7 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                 tags=tags,
             )
     else:
-        print("\nℹ️ 今回の巡回では通常相場から大幅に下がったフライトは見つかりませんでした。次回巡回時に再チェックします。")
+        print("\nℹ️ 今回の巡回では大幅に下がったフライトは見つかりませんでした。次回巡回時に再チェックします。")
 
 
 def main():

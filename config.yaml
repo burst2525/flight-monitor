@@ -8,27 +8,39 @@ origin:
   name: "大阪(関空)"
 
 # 2. 格安判定ルール (通常価格からの下落率)
-# 金額を自分で決めなくても、相場から大幅に安くなったフライトを自動検知します
 alert_criteria:
-  # 通常価格より何%安くなったら通知するか (例: 25% OFF以上)
-  discount_threshold_percent: 25
-  # クールダウン時間 (同じ価格の通知を重複して送らない間隔：時間)
-  cooldown_hours: 12
+  discount_threshold_percent: 25   # 通常相場より25%以上安くなったら格安通知
+  cooldown_hours: 8                # 同じ価格帯の重複通知を防ぐ間隔 (時間)
 
 # 3. iPhone通知設定 (ntfy.sh)
 notification:
-  # ※安全のため、実際のトピック名はGitHub Secrets (NTFY_TOPIC) から自動取得されます
-  topic: "YOUR_NTFY_TOPIC"
+  topic: "YOUR_NTFY_TOPIC"        # GitHub Secrets (NTFY_TOPIC) から自動取得
   server: "https://ntfy.sh"
   priority: "high"
 
-# 4. 監視期間
-search_window:
-  start_days_from_now: 14   # 何日後以降のフライトを調べるか (直前すぎない日程)
-  end_days_from_now: 90     # 何日後までのフライトを調べるか (例: 今後3ヶ月)
+# 4. 【ゴールデンウィーク重点監視設定 (2027年)】
+# 4月29日(木・祝) 〜 5月9日(日) のGW超大型連休をピンポイント監視
+gw_focus:
+  enabled: true
+  departure_dates:
+    - "2027-04-28"  # 水 (前夜発)
+    - "2027-04-29"  # 木 (昭和の日・祝日)
+    - "2027-04-30"  # 金 (有給推奨)
+    - "2027-05-01"  # 土
+    - "2027-05-02"  # 日
+  return_dates:
+    - "2027-05-04"  # 火 (みどりの日・祝日)
+    - "2027-05-05"  # 水 (こどもの日・祝日)
+    - "2027-05-06"  # 木
+    - "2027-05-08"  # 土
+    - "2027-05-09"  # 日 (連休最終日)
 
-# 5. 監視対象ルート (目的地と旅行日数)
-# ※手動で金額を指定する必要はありません。相場から自動判定されます。
+# 5. 通常期間の監視範囲 (GW以外の直近セールも拾う場合)
+search_window:
+  start_days_from_now: 14
+  end_days_from_now: 60
+
+# 6. 監視対象ルート (目的地と旅行日数)
 routes:
   # --- 【国内 主要路線】 ---
   - destination: "OKA"
@@ -39,12 +51,7 @@ routes:
   - destination: "CTS"
     name: "札幌(新千歳)"
     category: "国内"
-    trip_days: [2, 3, 4]
-
-  - destination: "HND"
-    name: "東京(羽田)"
-    category: "国内"
-    trip_days: [2, 3]
+    trip_days: [3, 4]
 
   - destination: "FUK"
     name: "福岡"
@@ -96,25 +103,25 @@ routes:
   - destination: "KUL"
     name: "クアラルンプール(マレーシア)"
     category: "東南アジア"
-    trip_days: [4, 5, 6]
+    trip_days: [5, 6, 7]
 
   # --- 【物価が安いヨーロッパ・周辺国】 ---
   - destination: "IST"
     name: "イスタンブール(トルコ)"
     category: "ヨーロッパ・中東"
-    trip_days: [7, 8, 9, 10]
+    trip_days: [7, 8, 9, 10, 11]
 
   - destination: "BUD"
     name: "ブダペスト(ハンガリー)"
     category: "東欧"
-    trip_days: [7, 8, 9, 10]
+    trip_days: [7, 8, 9, 10, 11]
 
   - destination: "WAW"
     name: "ワルシャワ(ポーランド)"
     category: "東欧"
-    trip_days: [7, 8, 9, 10]
+    trip_days: [7, 8, 9, 10, 11]
 
   - destination: "PRG"
     name: "プラハ(チェコ)"
     category: "東欧"
-    trip_days: [7, 8, 9, 10]
+    trip_days: [7, 8, 9, 10, 11]
