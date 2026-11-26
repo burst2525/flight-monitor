@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
 try:
-    from fast_flights import FlightData, Passengers, get_flights
+    from fast_flights import FlightData, Passengers
+    from fast_flights.flights_impl import TFSData
+    from fast_flights.core import get_flights_from_filter
     FAST_FLIGHTS_AVAILABLE = True
 except Exception as e:
     FAST_FLIGHTS_AVAILABLE = False
@@ -13,11 +15,23 @@ except Exception as e:
 
 
 def clean_price_to_int(price_str: str) -> Optional[int]:
-    """価格文字列 (例: '¥39394' や '39,394円') から数値を抽出"""
+    """
+    価格文字列 (例: '¥39,394' や '$141') から日本円の数値を正確に抽出
+    """
     if not price_str:
         return None
+
+    is_usd = "$" in price_str
     numbers = re.sub(r"[^\d]", "", price_str)
-    return int(numbers) if numbers else None
+    if not numbers:
+        return None
+
+    val = int(numbers)
+    # 米国サーバー等で万が一USD($)で返ってきた場合の自動円換算 (1 USD = 約155 JPY)
+    if is_usd:
+        val = int(val * 155)
+
+    return val
 
 
 class FlightChecker:
@@ -33,7 +47,7 @@ class FlightChecker:
         if ret_date:
             query += f" through {ret_date}"
         encoded_query = urllib.parse.quote(query)
-        return f"https://www.google.com/travel/flights?q={encoded_query}&curr=JPY"
+        return f"https://www.google.com/travel/flights?q={encoded_query}&curr=JPY&hl=ja"
 
     def search_round_trip(
         self,
@@ -44,14 +58,14 @@ class FlightChecker:
         max_results: int = 3,
     ) -> List[Dict[str, Any]]:
         """
-        APIキー不要でGoogle Flightsから往復最安値をリアルタイム取得
+        APIキー不要でGoogle Flightsから往復最安値をリアルタイム取得（日本円・JPY強制指定）
         """
         if not FAST_FLIGHTS_AVAILABLE:
             print("⚠️ fast-flights ライブラリが利用できません")
             return []
 
         try:
-            result = get_flights(
+            tfs = TFSData.from_interface(
                 flight_data=[
                     FlightData(date=dep_date, from_airport=origin, to_airport=destination),
                     FlightData(date=ret_date, from_airport=destination, to_airport=origin),
@@ -60,6 +74,9 @@ class FlightChecker:
                 seat="economy",
                 passengers=Passengers(adults=1),
             )
+
+            # 通貨にJPY(日本円)を明示的に指定！
+            result = get_flights_from_filter(tfs, currency="JPY")
 
             if not result or not result.flights:
                 return []
@@ -86,7 +103,6 @@ class FlightChecker:
             return offers
 
         except Exception as e:
-            # ネットワークエラーや一時的タイムアウト時のエラーハンドリング
             print(f"⚠️ 検索エラー [{origin} -> {destination} ({dep_date}〜{ret_date})]: {e}")
             return []
 
