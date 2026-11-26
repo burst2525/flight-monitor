@@ -19,7 +19,6 @@ notification:
   priority: "high"
 
 # 4. 【ゴールデンウィーク重点監視設定 (2027年)】
-# 4月29日(木・祝) 〜 5月9日(日) のGW超大型連休をピンポイント監視
 gw_focus:
   enabled: true
   departure_dates:
@@ -35,93 +34,151 @@ gw_focus:
     - "2027-05-08"  # 土
     - "2027-05-09"  # 日 (連休最終日)
 
-# 5. 通常期間の監視範囲 (GW以外の直近セールも拾う場合)
+# 5. 通常期間の監視範囲
 search_window:
   start_days_from_now: 14
   end_days_from_now: 60
 
-# 6. 監視対象ルート (目的地と旅行日数)
+# 6. 【おすすめ厳選 監視対象ルート一覧】
 routes:
-  # --- 【国内 主要路線】 ---
+  # ==========================================
+  # --- 【国内：人気リゾート＆主要都市】 ---
+  # ==========================================
   - destination: "OKA"
     name: "沖縄(那覇)"
-    category: "国内"
+    category: "国内リゾート"
+    trip_days: [3, 4]
+
+  - destination: "ISG"
+    name: "沖縄(石垣島)"
+    category: "国内リゾート"
+    trip_days: [3, 4]
+
+  - destination: "SHI"
+    name: "沖縄(下地島/宮古)"
+    category: "国内リゾート"
     trip_days: [3, 4]
 
   - destination: "CTS"
-    name: "札幌(新千歳)"
-    category: "国内"
+    name: "北海道(札幌/新千歳)"
+    category: "国内人気都市"
     trip_days: [3, 4]
 
   - destination: "FUK"
-    name: "福岡"
-    category: "国内"
+    name: "福岡(博多)"
+    category: "国内人気都市"
     trip_days: [2, 3]
 
-  # --- 【東アジア】 ---
+  - destination: "HND"
+    name: "東京(羽田/成田)"
+    category: "国内主要都市"
+    trip_days: [2, 3]
+
+  # ==========================================
+  # --- 【東アジア：近場・グルメ・LCC激戦区】 ---
+  # ==========================================
   - destination: "TPE"
-    name: "台北(桃園)"
+    name: "台湾(台北)"
     category: "東アジア"
     trip_days: [3, 4, 5]
 
   - destination: "KHH"
-    name: "高雄(台湾)"
+    name: "台湾(高雄)"
     category: "東アジア"
     trip_days: [3, 4]
 
   - destination: "ICN"
-    name: "ソウル(仁川)"
+    name: "韓国(ソウル)"
     category: "東アジア"
     trip_days: [3, 4]
+
+  - destination: "PUS"
+    name: "韓国(釜山)"
+    category: "東アジア"
+    trip_days: [2, 3]
 
   - destination: "HKG"
     name: "香港"
     category: "東アジア"
     trip_days: [3, 4]
 
-  # --- 【東南アジア】 ---
+  # ==========================================
+  # --- 【東南アジア：物価安・極上リゾート】 ---
+  # ==========================================
   - destination: "BKK"
-    name: "バンコク(タイ)"
+    name: "タイ(バンコク)"
     category: "東南アジア"
     trip_days: [4, 5, 6]
 
   - destination: "DAD"
-    name: "ダナン(ベトナム)"
-    category: "東南アジア"
+    name: "ベトナム(ダナン)"
+    category: "東南アジアリゾート"
     trip_days: [4, 5]
 
   - destination: "HAN"
-    name: "ハノイ(ベトナム)"
+    name: "ベトナム(ハノイ)"
     category: "東南アジア"
     trip_days: [4, 5]
 
+  - destination: "SGN"
+    name: "ベトナム(ホーチミン)"
+    category: "東南アジア"
+    trip_days: [4, 5]
+
+  - destination: "CEB"
+    name: "フィリピン(セブ島)"
+    category: "東南アジアリゾート"
+    trip_days: [4, 5]
+
   - destination: "MNL"
-    name: "マニラ(フィリピン)"
+    name: "フィリピン(マニラ)"
     category: "東南アジア"
     trip_days: [4, 5]
 
   - destination: "KUL"
-    name: "クアラルンプール(マレーシア)"
+    name: "マレーシア(クアラルンプール)"
     category: "東南アジア"
+    trip_days: [4, 5, 6]
+
+  - destination: "SIN"
+    name: "シンガポール"
+    category: "東南アジア"
+    trip_days: [4, 5]
+
+  - destination: "DPS"
+    name: "インドネシア(バリ島)"
+    category: "東南アジアリゾート"
     trip_days: [5, 6, 7]
 
-  # --- 【物価が安いヨーロッパ・周辺国】 ---
+  # ==========================================
+  # --- 【ヨーロッパ・周辺：物価安・歴史遺産】 ---
+  # ==========================================
   - destination: "IST"
-    name: "イスタンブール(トルコ)"
-    category: "ヨーロッパ・中東"
+    name: "トルコ(イスタンブール)"
+    category: "中東・ヨーロッパ"
     trip_days: [7, 8, 9, 10, 11]
 
   - destination: "BUD"
-    name: "ブダペスト(ハンガリー)"
-    category: "東欧"
-    trip_days: [7, 8, 9, 10, 11]
-
-  - destination: "WAW"
-    name: "ワルシャワ(ポーランド)"
+    name: "ハンガリー(ブダペスト)"
     category: "東欧"
     trip_days: [7, 8, 9, 10, 11]
 
   - destination: "PRG"
-    name: "プラハ(チェコ)"
+    name: "チェコ(プラハ)"
     category: "東欧"
+    trip_days: [7, 8, 9, 10, 11]
+
+  - destination: "WAW"
+    name: "ポーランド(ワルシャワ)"
+    category: "東欧"
+    trip_days: [7, 8, 9, 10, 11]
+
+  - destination: "CAI"
+    name: "エジプト(カイロ)"
+    category: "中東・アフリカ"
+    trip_days: [7, 8, 9, 10, 11]
+
+  - destination: "TBS"
+    name: "ジョージア(トビリシ)"
+    category: "コーカサス・物価安"
     trip_days: [7, 8, 9, 10, 11]
