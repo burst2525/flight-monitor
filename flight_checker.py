@@ -7,8 +7,9 @@ from typing import List, Dict, Any, Optional
 try:
     from fast_flights import FlightData, Passengers, get_flights
     FAST_FLIGHTS_AVAILABLE = True
-except ImportError:
+except Exception as e:
     FAST_FLIGHTS_AVAILABLE = False
+    print(f"⚠️ fast-flights インポート失敗: {e}")
 
 
 def clean_price_to_int(price_str: str) -> Optional[int]:
