@@ -59,16 +59,6 @@ routes:
     category: "国内人気都市"
     trip_days: [3, 4]
 
-  - destination: "FUK"
-    name: "福岡(博多)"
-    category: "国内人気都市"
-    trip_days: [2, 3]
-
-  - destination: "HND"
-    name: "東京(羽田/成田)"
-    category: "国内主要都市"
-    trip_days: [2, 3]
-
   # ==========================================
   # --- 【東アジア：近場・グルメ・LCC激戦区】 ---
   # ==========================================
