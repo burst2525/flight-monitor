@@ -87,6 +87,9 @@ class FlightChecker:
                 if not price_num:
                     continue
 
+                stops_num = flight.stops if isinstance(flight.stops, int) else 0
+                stops_text = "✈️ 直行便" if stops_num == 0 else f"🔄 経由 {stops_num}回"
+
                 offers.append({
                     "price": price_num,
                     "currency": "JPY",
@@ -95,6 +98,9 @@ class FlightChecker:
                     "dep_date": dep_date,
                     "ret_date": ret_date,
                     "airline_name": flight.name,
+                    "stops": stops_num,
+                    "stops_text": stops_text,
+                    "duration": flight.duration or "",
                     "carriers": [flight.name],
                     "google_flights_url": self.build_google_flights_url(origin, destination, dep_date, ret_date),
                 })

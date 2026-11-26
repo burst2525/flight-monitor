@@ -155,6 +155,8 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                             "dep_date": dep_date,
                             "ret_date": ret_date,
                             "airline_name": airline,
+                            "stops_text": offer.get("stops_text", "直行便"),
+                            "duration": offer.get("duration", ""),
                             "is_gw": is_gw,
                             "google_flights_url": offer["google_flights_url"],
                         }
@@ -176,6 +178,10 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             else:
                 badge = "🚨【メガセール!】" if is_mega else "✈️【格安検知】"
 
+            stops_info = deal.get("stops_text", "")
+            duration_info = f" (所要: {deal['duration']})" if deal.get("duration") else ""
+            flight_type_line = f"🛫 運航: {deal.get('airline_name', '航空会社')} 【{stops_info}】{duration_info}\n"
+
             title = f"{badge} {origin_name} ➔ {deal['name']} {deal['price']:,}円"
             gw_note = "※超高騰するゴールデンウィークの格安枠です！\n" if is_gw else ""
             body = (
@@ -183,7 +189,7 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                 f"{gw_note}"
                 f"💰 往復総額: {deal['price']:,}円 (通常相場: 約{deal['typical_price']:,}円)\n"
                 f"🏷 割引率: 約{deal['discount_rate']}% OFF (-{deal['drop_amount']:,}円)\n"
-                f"🛫 運航: {deal.get('airline_name', '航空会社')}\n"
+                f"{flight_type_line}"
                 f"📅 日程: {deal['dep_date']} 〜 {deal['ret_date']}\n"
                 f"👉 タップしてGoogleフライトで予約画面を開く"
             )
