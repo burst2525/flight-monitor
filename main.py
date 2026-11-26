@@ -85,8 +85,7 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
     gw_enabled = gw_cfg.get("enabled", True)
 
     print(f"✈️ 航空券リアルタイム監視開始 [拠点: {origin_name}]")
-    if gw_enabled:
-        print("🎏 【ゴールデンウィーク(2027年4月下旬〜5月上旬)重点監視中】")
+    print("🎏 【ゴールデンウィーク(2027年4月下旬〜5月上旬) 専用監視モード稼働中】")
     print(f"📊 格安判定基準: 通常相場より {discount_threshold}% 以上の大幅下落・セールを検知")
     print(f"📡 iPhone通知トピック: {topic}")
 
@@ -115,17 +114,10 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             search_dates = []
             if gw_enabled:
                 gw_pairs = generate_gw_dates(gw_cfg, trip_days)
-                search_dates.extend(gw_pairs[:4])  # GW日程を優先
-
-            # 通常期の日程も少し補完
-            window = config.get("search_window", {})
-            start_days = window.get("start_days_from_now", 14)
-            end_days = window.get("end_days_from_now", 60)
-            regular_pairs = generate_regular_dates(start_days, end_days, trip_days)
-            search_dates.extend(regular_pairs[:1])
+                search_dates.extend(gw_pairs)  # GW日程のみを網羅！
 
             typical = history.get_typical_price(dest)
-            print(f"🔍 検索中: {origin_name} ➔ {dest_name}({dest}) [相場: 約{int(typical):,}円] ...")
+            print(f"🔍 検索中: {origin_name} ➔ {dest_name}({dest}) [通常相場: 約{int(typical):,}円] ...")
 
             for dep_date, ret_date, is_gw in search_dates:
                 offers = checker.search_round_trip(origin, dest, dep_date, ret_date)

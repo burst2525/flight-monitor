@@ -18,7 +18,7 @@ notification:
   server: "https://ntfy.sh"
   priority: "high"
 
-# 4. 【ゴールデンウィーク重点監視設定 (2027年)】
+# 4. 【ゴールデンウィーク専用監視設定 (2027年)】
 gw_focus:
   enabled: true
   departure_dates:
@@ -34,12 +34,7 @@ gw_focus:
     - "2027-05-08"  # 土
     - "2027-05-09"  # 日 (連休最終日)
 
-# 5. 通常期間の監視範囲
-search_window:
-  start_days_from_now: 14
-  end_days_from_now: 60
-
-# 6. 【おすすめ厳選 監視対象ルート一覧】
+# 5. 【おすすめ厳選 監視対象ルート一覧】
 routes:
   # ==========================================
   # --- 【国内：人気リゾート＆主要都市】 ---
