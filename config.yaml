@@ -130,11 +130,6 @@ routes:
     category: "東南アジアリゾート"
     trip_days: [4, 5]
 
-  - destination: "MNL"
-    name: "フィリピン(マニラ)"
-    category: "東南アジア"
-    trip_days: [4, 5]
-
   - destination: "KUL"
     name: "マレーシア(クアラルンプール)"
     category: "東南アジア"
