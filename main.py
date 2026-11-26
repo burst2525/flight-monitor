@@ -174,7 +174,9 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             duration_info = f" (所要: {deal['duration']})" if deal.get("duration") else ""
             flight_type_line = f"🛫 運航: {deal.get('airline_name', '航空会社')} 【{stops_info}】{duration_info}\n"
 
-            title = f"{badge} {origin_name} ➔ {deal['name']} {deal['price']:,}円"
+            # 通知欄で「行き先」と「値段」が一瞬で読めるように、先頭の絵文字や【格安検知】を廃止
+            gw_label = " [GW]" if is_gw else ""
+            title = f"{deal['name']} {deal['price']:,}円{gw_label}"
             gw_note = "※超高騰するゴールデンウィークの格安枠です！\n" if is_gw else ""
             body = (
                 f"{deal.get('reason', '')}\n"
@@ -187,14 +189,13 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             )
 
             priority = "urgent" if (is_mega or is_gw) else "high"
-            tags = ["airplane", "flags", "fire"] if is_gw else ["airplane", "sparkles"]
 
             notifier.send(
                 title=title,
                 message=body,
                 click_url=deal["google_flights_url"],
                 priority=priority,
-                tags=tags,
+                tags=None,  # タイトル先頭の自動絵文字を完全に無くす
             )
     else:
         print("\nℹ️ 今回の巡回では大幅に下がったフライトは見つかりませんでした。次回巡回時に再チェックします。")
