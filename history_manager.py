@@ -116,10 +116,10 @@ class PriceHistoryManager:
         current_price: float,
         discount_threshold_percent: float = 25.0,
         cooldown_hours: int = 12,
+        budget_limit: Optional[int] = None,
     ) -> Tuple[bool, dict]:
         """
-        通常相場から見て大幅に下がったかどうかを判定します。
-        例: 通常4.2万円の台湾が1万円台になった場合は「🚨 超破格メガセール」として即座に判定。
+        通常相場からの大幅値下がり、またはユーザー指定の予算上限クリアを判定します。
         """
         typical_price = self.get_typical_price(destination, route_key)
         drop_amount = typical_price - current_price
@@ -131,28 +131,36 @@ class PriceHistoryManager:
         min_price = record.get("min_price", float("inf"))
         last_notified_str = record.get("last_notified_at")
 
+        is_budget_deal = budget_limit is not None and current_price <= budget_limit
+
         analysis = {
             "current_price": int(current_price),
             "typical_price": int(typical_price),
             "drop_amount": int(drop_amount),
             "discount_rate": round(discount_rate, 1),
             "is_mega_deal": False,
+            "is_budget_deal": is_budget_deal,
+            "budget_limit": budget_limit,
             "status": "normal",
             "reason": "",
             "priority": "high",
         }
 
-        # 通常相場からの下落率が基準未満（例: 40% OFF未満）なら通知対象外
-        if discount_rate < discount_threshold_percent:
+        # 通常相場からの下落率が基準未満 かつ 予算上限以下でもない場合は通知対象外
+        if discount_rate < discount_threshold_percent and not is_budget_deal:
             return False, analysis
 
         analysis["status"] = "cheap"
 
-        # 【超破格メガセール検知】40%以上の値下がり
+        # 【超破格メガセール検知】40%以上の値下がり または 予算上限クリア
         if discount_rate >= 40:
             analysis["is_mega_deal"] = True
             analysis["priority"] = "urgent"  # 最優先通知（iPhoneのマナーモード貫通）
-            analysis["reason"] = f"🚨【超破格メガセール！】通常相場より約{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）"
+            budget_txt = f"＆設定予算クリア({budget_limit:,}円以下)" if is_budget_deal else ""
+            analysis["reason"] = f"🚨【超破格メガセール！】通常相場より約{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）{budget_txt}"
+        elif is_budget_deal:
+            analysis["priority"] = "urgent"
+            analysis["reason"] = f"🎯【予算上限クリア！】設定予算（{budget_limit:,}円以下）を達成！通常より{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）"
         elif current_price < min_price and min_price != float("inf"):
             analysis["reason"] = f"🔥 過去最安値を更新！(-{int(min_price - current_price):,}円安)"
         elif last_price != float("inf") and (last_price - current_price) >= 1500:
@@ -177,7 +185,8 @@ class PriceHistoryManager:
                 or (last_price != float("inf") and (last_price >= typical_price * 0.70 or last_price >= last_notified_price + 5000))
             )
             if is_sold_out_revival:
-                analysis["reason"] = f"✨【売り切れ後の再出現！】格安チケットが復活！通常より約{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）"
+                budget_txt = f" (設定予算 {budget_limit:,}円以下クリア)" if is_budget_deal else ""
+                analysis["reason"] = f"✨【売り切れ後の再出現！】格安チケットが復活！通常より約{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）{budget_txt}"
                 return True, analysis
 
             # 3. 最後に通知してから24時間以上経過している場合（1日1回のリマインド）➔ 通知

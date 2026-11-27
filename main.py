@@ -73,6 +73,7 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
     alert_cfg = config.get("alert_criteria", {})
     discount_threshold = alert_cfg.get("discount_threshold_percent", 25.0)
     cooldown_hours = alert_cfg.get("cooldown_hours", 8)
+    budget_limits = alert_cfg.get("budget_limits", {})
 
     # 4. フライトチェッカー
     checker = FlightChecker()
@@ -87,6 +88,8 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
     print(f"✈️ 航空券リアルタイム監視開始 [拠点: {origin_name}]")
     print("🎏 【ゴールデンウィーク(2027年4月下旬〜5月上旬) 専用監視モード稼働中】")
     print(f"📊 格安判定基準: 通常相場より {discount_threshold}% 以上の大幅下落・セールを検知")
+    if budget_limits:
+        print(f"🎯 予算上限ルール: {len(budget_limits)} 都市の指定上限価格を適用中（予算以下なら無条件即通知！）")
     print(f"📡 iPhone通知トピック: {topic}")
 
     found_deals = []
@@ -97,8 +100,9 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
         for deal in mock_deals:
             dest = deal["destination"]
             route_key = f"{deal['origin']}_{dest}_{deal['dep_date']}_{deal['ret_date']}"
+            budget_limit = budget_limits.get(dest)
             should_notify, analysis = history.evaluate_deal(
-                dest, route_key, deal["price"], discount_threshold_percent=discount_threshold, cooldown_hours=cooldown_hours
+                dest, route_key, deal["price"], discount_threshold_percent=discount_threshold, cooldown_hours=cooldown_hours, budget_limit=budget_limit
             )
             if should_notify:
                 deal.update(analysis)
@@ -136,11 +140,12 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                     airline = offer.get("airline_name", "航空会社")
                     route_key = f"{origin}_{dest}_{dep_date}_{ret_date}"
 
-                    # 相場と比較して大幅値下がりか判定
+                    # 相場と比較して大幅値下がりか、または指定予算クリアかを判定
                     # ※GW期間は通常期の相場でも十分安いため、GWはしきい値を少し柔軟に判定
                     gw_discount_threshold = max(15.0, discount_threshold - 5.0) if is_gw else discount_threshold
+                    budget_limit = budget_limits.get(dest)
                     should_notify, analysis = history.evaluate_deal(
-                        dest, route_key, price, discount_threshold_percent=gw_discount_threshold, cooldown_hours=cooldown_hours
+                        dest, route_key, price, discount_threshold_percent=gw_discount_threshold, cooldown_hours=cooldown_hours, budget_limit=budget_limit
                     )
                     
                     history.record_flight(dest, route_key, price, offer, notified=should_notify)
@@ -200,9 +205,11 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             gw_label = " [GW]" if is_gw else ""
             title = f"{deal['name']} {deal['price']:,}円{gw_label}"
             gw_note = "※超高騰するゴールデンウィークの格安枠です！\n" if is_gw else ""
+            budget_info = f"🎯 設定予算: {deal['budget_limit']:,}円以下クリア！\n" if deal.get("budget_limit") else ""
             body = (
                 f"{deal.get('reason', '')}\n"
                 f"{gw_note}"
+                f"{budget_info}"
                 f"💰 往復総額: {deal['price']:,}円 (通常相場: 約{deal['typical_price']:,}円)\n"
                 f"🏷 割引率: 約{deal['discount_rate']}% OFF (-{deal['drop_amount']:,}円)\n"
                 f"{flight_type_line}"
