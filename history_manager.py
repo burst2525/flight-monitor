@@ -90,20 +90,24 @@ class PriceHistoryManager:
             print(f"⚠️ 履歴ファイルの保存に失敗: {e}")
 
     def get_typical_price(self, destination: str, route_key: Optional[str] = None) -> float:
-        """路線の通常相場を算出（データが蓄積されれば実際の中央値に自動追従）"""
+        """路線の通常相場を算出（一時的なセール価格に引きずられないよう安全ガード付き）"""
+        default_price = float(DEFAULT_TYPICAL_PRICES.get(destination, 50000))
+
+        all_samples = []
         if route_key and route_key in self.history:
-            samples = self.history[route_key].get("price_samples", [])
-            if len(samples) >= 3:
-                return float(statistics.median(samples))
+            all_samples.extend(self.history[route_key].get("price_samples", []))
+        elif not route_key:
+            for r_key, data in self.history.items():
+                if destination in r_key:
+                    all_samples.extend(data.get("price_samples", []))
 
-        dest_samples = []
-        for r_key, data in self.history.items():
-            if destination in r_key:
-                dest_samples.extend(data.get("price_samples", []))
-        if len(dest_samples) >= 3:
-            return float(statistics.median(dest_samples))
+        # 最低10サンプル以上あり、かつ極端なセール価格に引きずられていない妥当な範囲(相場の75%〜200%)であれば採用
+        if len(all_samples) >= 10:
+            observed = float(statistics.median(all_samples))
+            if default_price * 0.75 <= observed <= default_price * 2.0:
+                return observed
 
-        return float(DEFAULT_TYPICAL_PRICES.get(destination, 50000))
+        return default_price
 
     def evaluate_deal(
         self,
@@ -156,13 +160,32 @@ class PriceHistoryManager:
         else:
             analysis["reason"] = f"🎉 通常より【{round(discount_rate)}% OFF】の大幅安（-{int(drop_amount):,}円安）"
 
-        # 【改善2：同じ価格帯の再通知を完全停止】
-        # 一度通知したルートは、過去の通知価格よりさらに安くなった時（最安値更新）のみ通知し、同じ価格での再通知は一切行わない
+        # 【賢い通知制御：通知ラッシュ防止 ＆ 売り切れ後の再出現（復活・新枠）を検知】
         if last_notified_str:
+            last_notified = datetime.fromisoformat(last_notified_str)
             last_notified_price = record.get("last_notified_price", float("inf"))
-            if current_price >= last_notified_price - 1000:
-                # 前回の通知価格と同じ、または値上がりしている場合は通知しない
-                return False, analysis
+
+            # 1. 前回の通知価格よりさらに1,000円以上安くなった場合（最安値更新）➔ 即通知！
+            if current_price < last_notified_price - 1000:
+                analysis["reason"] = f"🔥 前回の通知よりさらに値下がり！最安値を更新 (-{int(last_notified_price - current_price):,}円)"
+                return True, analysis
+
+            # 2. 一度売り切れて値上がり（通常相場に戻る、または急騰）した後に、再び格安枠が出現した場合 ➔ 即通知！
+            # 例: 10,000円が売れて35,000円になった後、新たに11,000円が出現したケース
+            is_sold_out_revival = (
+                record.get("sold_out_detected", False)
+                or (last_price != float("inf") and (last_price >= typical_price * 0.70 or last_price >= last_notified_price + 5000))
+            )
+            if is_sold_out_revival:
+                analysis["reason"] = f"✨【売り切れ後の再出現！】格安チケットが復活！通常より約{round(discount_rate)}% OFF（-{int(drop_amount):,}円安）"
+                return True, analysis
+
+            # 3. 最後に通知してから24時間以上経過している場合（1日1回のリマインド）➔ 通知
+            if now - last_notified >= timedelta(hours=24):
+                return True, analysis
+
+            # 上記以外（同じ格安価格帯のまま売れ残っている場合）➔ 通知ラッシュを防ぐためスキップ
+            return False, analysis
 
         return True, analysis
 
@@ -188,9 +211,18 @@ class PriceHistoryManager:
         if price < record.get("min_price", float("inf")):
             record["min_price"] = price
 
+        typical_price = self.get_typical_price(destination, route_key)
+        last_notified_price = record.get("last_notified_price", float("inf"))
+
         if notified:
             record["last_notified_at"] = now
             record["last_notified_price"] = price
+            record["sold_out_detected"] = False  # 通知したばかりなので売り切れフラグをリセット
+        else:
+            # 格安枠が売り切れて通常相場に戻った、または大幅値上がりした場合を検知
+            if price >= typical_price * 0.70 or (last_notified_price != float("inf") and price >= last_notified_price + 5000):
+                record["sold_out_detected"] = True
+                record["sold_out_at"] = now
 
         self.history[route_key] = record
         self.save()
