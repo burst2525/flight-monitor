@@ -9,8 +9,8 @@ origin:
 
 # 2. 格安判定ルール (通常価格からの下落率)
 alert_criteria:
-  discount_threshold_percent: 25   # 通常相場より25%以上安くなったら格安通知
-  cooldown_hours: 8                # 同じ価格帯の重複通知を防ぐ間隔 (時間)
+  discount_threshold_percent: 40   # 通常相場より【40%以上OFF】の目玉セールのみ厳選通知！
+  cooldown_hours: 999              # 同じ価格の再通知は完全停止 (最安値更新時のみ通知)
 
 # 3. iPhone通知設定 (ntfy.sh)
 notification:

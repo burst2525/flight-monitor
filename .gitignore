@@ -4,3 +4,4 @@ __pycache__/
 price_history.json
 .DS_Store
 venv/
+*.log

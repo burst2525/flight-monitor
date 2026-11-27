@@ -136,13 +136,13 @@ class PriceHistoryManager:
             "priority": "high",
         }
 
-        # 通常相場からの下落率が基準未満なら通知対象外
+        # 通常相場からの下落率が基準未満（例: 40% OFF未満）なら通知対象外
         if discount_rate < discount_threshold_percent:
             return False, analysis
 
         analysis["status"] = "cheap"
 
-        # 【超破格メガセール検知】40%以上の値下がり (例: 台湾4.2万➔1.8万 = 57% OFF)
+        # 【超破格メガセール検知】40%以上の値下がり
         if discount_rate >= 40:
             analysis["is_mega_deal"] = True
             analysis["priority"] = "urgent"  # 最優先通知（iPhoneのマナーモード貫通）
@@ -154,14 +154,13 @@ class PriceHistoryManager:
         else:
             analysis["reason"] = f"🎉 通常より【{round(discount_rate)}% OFF】の大幅安（-{int(drop_amount):,}円安）"
 
-        # クールダウン判定（直近で同じ価格を通知済みなら通知ラッシュを防ぐ）
-        # ※ただし「超破格メガセール」の場合は重要度が高いため通知間隔を短縮
-        effective_cooldown = 4 if analysis["is_mega_deal"] else cooldown_hours
+        # 【改善2：同じ価格帯の再通知を完全停止】
+        # 一度通知したルートは、過去の通知価格よりさらに安くなった時（最安値更新）のみ通知し、同じ価格での再通知は一切行わない
         if last_notified_str:
-            last_notified = datetime.fromisoformat(last_notified_str)
-            if abs(current_price - record.get("last_notified_price", current_price)) < 1000:
-                if now - last_notified < timedelta(hours=effective_cooldown):
-                    return False, analysis
+            last_notified_price = record.get("last_notified_price", float("inf"))
+            if current_price >= last_notified_price - 1000:
+                # 前回の通知価格と同じ、または値上がりしている場合は通知しない
+                return False, analysis
 
         return True, analysis
 
