@@ -112,6 +112,123 @@ class FlightChecker:
             print(f"⚠️ 検索エラー [{origin} -> {destination} ({dep_date}〜{ret_date})]: {e}")
             return []
 
+    def search_one_way(
+        self,
+        origin: str,
+        destination: str,
+        dep_date: str,
+        max_results: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        片道フライトをGoogle Flightsからリアルタイム取得（日本円・JPY）
+        """
+        if not FAST_FLIGHTS_AVAILABLE:
+            return []
+
+        try:
+            tfs = TFSData.from_interface(
+                flight_data=[
+                    FlightData(date=dep_date, from_airport=origin, to_airport=destination),
+                ],
+                trip="one-way",
+                seat="economy",
+                passengers=Passengers(adults=1),
+            )
+
+            result = get_flights_from_filter(tfs, currency="JPY")
+            if not result or not result.flights:
+                return []
+
+            offers = []
+            for flight in result.flights[:max_results]:
+                price_num = clean_price_to_int(flight.price)
+                if not price_num:
+                    continue
+
+                stops_num = flight.stops if isinstance(flight.stops, int) else 0
+                stops_text = "✈️ 直行便" if stops_num == 0 else f"🔄 経由 {stops_num}回"
+
+                offers.append({
+                    "price": price_num,
+                    "currency": "JPY",
+                    "origin": origin,
+                    "destination": destination,
+                    "dep_date": dep_date,
+                    "airline_name": flight.name,
+                    "stops": stops_num,
+                    "stops_text": stops_text,
+                    "duration": flight.duration or "",
+                    "carriers": [flight.name],
+                    "google_flights_url": self.build_google_flights_url(origin, destination, dep_date),
+                })
+
+            offers.sort(key=lambda x: x["price"])
+            return offers
+
+        except Exception as e:
+            print(f"⚠️ 片道検索エラー [{origin} -> {destination} ({dep_date})]: {e}")
+            return []
+
+    def search_open_jaw(
+        self,
+        origin: str,
+        outbound_dest: str,
+        inbound_origin: str,
+        final_dest: str,
+        dep_date: str,
+        ret_date: str,
+        one_way_cache: Optional[dict] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        周遊（オープンジョー）航空券を検索:
+        行き: origin -> outbound_dest (dep_date)
+        帰り: inbound_origin -> final_dest (ret_date)
+        """
+        cache = one_way_cache if one_way_cache is not None else {}
+
+        out_key = (origin, outbound_dest, dep_date)
+        if out_key not in cache:
+            cache[out_key] = self.search_one_way(origin, outbound_dest, dep_date)
+        outbound_offers = cache[out_key]
+
+        in_key = (inbound_origin, final_dest, ret_date)
+        if in_key not in cache:
+            cache[in_key] = self.search_one_way(inbound_origin, final_dest, ret_date)
+        inbound_offers = cache[in_key]
+
+        if not outbound_offers or not inbound_offers:
+            return []
+
+        best_out = outbound_offers[0]
+        best_in = inbound_offers[0]
+
+        total_price = best_out["price"] + best_in["price"]
+        airline_name = best_out["airline_name"] if best_out["airline_name"] == best_in["airline_name"] else f"{best_out['airline_name']} / {best_in['airline_name']}"
+        stops_text = f"行: {best_out['stops_text']} / 帰: {best_in['stops_text']}"
+        duration_text = f"行: {best_out['duration']}, 帰: {best_in['duration']}"
+
+        # Google Flights 周遊用URL
+        query = f"Flights from {origin} to {outbound_dest} on {dep_date} and from {inbound_origin} to {final_dest} on {ret_date}"
+        encoded_query = urllib.parse.quote(query)
+        multi_city_url = f"https://www.google.com/travel/flights?q={encoded_query}&curr=JPY&hl=ja"
+
+        return [{
+            "price": total_price,
+            "currency": "JPY",
+            "origin": origin,
+            "destination": f"{outbound_dest}_{inbound_origin}",
+            "dep_date": dep_date,
+            "ret_date": ret_date,
+            "airline_name": airline_name,
+            "stops_text": stops_text,
+            "duration": duration_text,
+            "carriers": [best_out["airline_name"], best_in["airline_name"]],
+            "google_flights_url": multi_city_url,
+            "outbound": best_out,
+            "inbound": best_in,
+            "is_open_jaw": True,
+        }]
+
     def get_mock_deals(self, routes: list, origin: str) -> List[Dict[str, Any]]:
         """デモ動作確認用のモックデータ"""
         base_date = datetime.now() + timedelta(days=28)

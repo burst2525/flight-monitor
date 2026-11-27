@@ -106,10 +106,12 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                 history.record_flight(dest, route_key, deal["price"], deal, notified=True)
     else:
         # 本番：Googleフライトからリアルタイム最新価格を取得！
+        one_way_cache = {}
         for route in routes[:max_routes]:
             dest = route["destination"]
             dest_name = route.get("name", dest)
             trip_days = route.get("trip_days", [3])
+            is_open_jaw = route.get("is_open_jaw", False)
 
             search_dates = []
             if gw_enabled:
@@ -120,7 +122,15 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             print(f"🔍 検索中: {origin_name} ➔ {dest_name}({dest}) [通常相場: 約{int(typical):,}円] ...")
 
             for dep_date, ret_date, is_gw in search_dates:
-                offers = checker.search_round_trip(origin, dest, dep_date, ret_date)
+                if is_open_jaw:
+                    outbound_dest = route.get("outbound_dest")
+                    inbound_origin = route.get("inbound_origin")
+                    offers = checker.search_open_jaw(
+                        origin, outbound_dest, inbound_origin, origin, dep_date, ret_date, one_way_cache=one_way_cache
+                    )
+                else:
+                    offers = checker.search_round_trip(origin, dest, dep_date, ret_date)
+
                 for offer in offers:
                     price = offer["price"]
                     airline = offer.get("airline_name", "航空会社")
@@ -150,6 +160,9 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                             "stops_text": offer.get("stops_text", "直行便"),
                             "duration": offer.get("duration", ""),
                             "is_gw": is_gw,
+                            "is_open_jaw": is_open_jaw,
+                            "outbound": offer.get("outbound"),
+                            "inbound": offer.get("inbound"),
                             "google_flights_url": offer["google_flights_url"],
                         }
                         deal_info.update(analysis)
@@ -174,6 +187,15 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
             duration_info = f" (所要: {deal['duration']})" if deal.get("duration") else ""
             flight_type_line = f"🛫 運航: {deal.get('airline_name', '航空会社')} 【{stops_info}】{duration_info}\n"
 
+            extra_lines = ""
+            if deal.get("is_open_jaw") and deal.get("outbound") and deal.get("inbound"):
+                out = deal["outbound"]
+                inb = deal["inbound"]
+                extra_lines = (
+                    f"✈️ 行き({out['dep_date']}): 大阪 ➔ {out['destination']} ({out['airline_name']} {out['stops_text']})\n"
+                    f"✈️ 帰り({inb['dep_date']}): {inb['origin']} ➔ 大阪 ({inb['airline_name']} {inb['stops_text']})\n"
+                )
+
             # 通知欄で「行き先」と「値段」が一瞬で読めるように、先頭の絵文字や【格安検知】を廃止
             gw_label = " [GW]" if is_gw else ""
             title = f"{deal['name']} {deal['price']:,}円{gw_label}"
@@ -184,6 +206,7 @@ def run_check(config: dict, is_demo: bool = False, max_routes: int = 5):
                 f"💰 往復総額: {deal['price']:,}円 (通常相場: 約{deal['typical_price']:,}円)\n"
                 f"🏷 割引率: 約{deal['discount_rate']}% OFF (-{deal['drop_amount']:,}円)\n"
                 f"{flight_type_line}"
+                f"{extra_lines}"
                 f"📅 日程: {deal['dep_date']} 〜 {deal['ret_date']}\n"
                 f"👉 タップしてGoogleフライトで予約画面を開く"
             )

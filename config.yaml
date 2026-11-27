@@ -131,6 +131,25 @@ routes:
     trip_days: [5, 6, 7]
 
   # ==========================================
+  # --- 【周遊：複数都市・オープンジョー】 ---
+  # ==========================================
+  - destination: "KUL_SIN"
+    name: "マレーシア➔シンガポール周遊"
+    category: "東南アジア周遊"
+    is_open_jaw: true
+    outbound_dest: "KUL"     # 行き：大阪 ➔ クアラルンプール
+    inbound_origin: "SIN"    # 帰り：シンガポール ➔ 大阪
+    trip_days: [4, 5, 6]
+
+  - destination: "SIN_KUL"
+    name: "シンガポール➔マレーシア周遊"
+    category: "東南アジア周遊"
+    is_open_jaw: true
+    outbound_dest: "SIN"     # 行き：大阪 ➔ シンガポール
+    inbound_origin: "KUL"    # 帰り：クアラルンプール ➔ 大阪
+    trip_days: [4, 5, 6]
+
+  # ==========================================
   # --- 【ヨーロッパ・周辺：物価安・歴史遺産】 ---
   # ==========================================
   - destination: "IST"
